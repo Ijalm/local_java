@@ -11,7 +11,8 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                git 'https://github.com/Ijalm/local_java.git'
+                //git 'https://github.com/Ijalm/local_java.git'
+		git branch: 'main', url: 'https://github.com/Ijalm/local_java.git'
             }
         }
 
