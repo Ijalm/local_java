@@ -1,25 +1,27 @@
 pipeline {
     agent any
 
-    tools {
-        maven 'Maven'
-        jdk 'JDK8'
-    }
-
     environment {
         IMAGE_NAME = "shopping-cart-app"
-        NEXUS_URL = "YOUR_NEXUS_IP:8082"
-        NEXUS_REPO = "docker-hosted"
-        IMAGE_TAG = "latest"
-
-        FULL_IMAGE_NAME = "${NEXUS_URL}/${NEXUS_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
+        CONTAINER_NAME = "shopping-cart-container"
+        PORT = "8080"
     }
 
     stages {
 
-        stage('Clone Repository') {
+        stage('Checkout Code') {
             steps {
-                git 'https://github.com/shashirajraja/shopping-cart.git'
+                git 'https://github.com/Ijalm/local_java.git'
+            }
+        }
+
+        stage('Check Environment') {
+            steps {
+                sh '''
+                    java -version
+                    mvn -version
+                    docker -v
+                '''
             }
         }
 
@@ -31,62 +33,38 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t $IMAGE_NAME .'
+                sh "docker build -t $IMAGE_NAME ."
             }
         }
 
-        stage('Tag Docker Image') {
-            steps {
-                sh 'docker tag $IMAGE_NAME $FULL_IMAGE_NAME'
-            }
-        }
-
-        stage('Login to Nexus Docker Registry') {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'nexus-credentials',
-                    usernameVariable: 'NEXUS_USER',
-                    passwordVariable: 'NEXUS_PASS'
-                )]) {
-
-                    sh '''
-                    echo $NEXUS_PASS | docker login $NEXUS_URL \
-                    -u $NEXUS_USER \
-                    --password-stdin
-                    '''
-                }
-            }
-        }
-
-        stage('Push Image to Nexus') {
-            steps {
-                sh 'docker push $FULL_IMAGE_NAME'
-            }
-        }
-
-        stage('Deploy Container') {
+        stage('Stop Old Container') {
             steps {
                 sh '''
-                docker stop shopping-cart-container || true
-                docker rm shopping-cart-container || true
-
-                docker run -d \
-                --name shopping-cart-container \
-                -p 8080:8080 \
-                $FULL_IMAGE_NAME
+                    docker stop $CONTAINER_NAME || true
+                    docker rm $CONTAINER_NAME || true
                 '''
+            }
+        }
+
+        stage('Run Container') {
+            steps {
+                sh """
+                    docker run -d \
+                    --name $CONTAINER_NAME \
+                    -p $PORT:8080 \
+                    $IMAGE_NAME
+                """
             }
         }
     }
 
     post {
-
         success {
-            echo 'Application built and deployed successfully!'
+            echo "Build & Deployment Successful 🚀"
         }
 
         failure {
-            echo 'Pipeline failed!'
+            echo "Pipeline Failed ❌ Check logs"
         }
     }
 }
